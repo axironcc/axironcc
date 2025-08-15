@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kredi Kartı Üretici ve Doğrulayıcı</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        :root {
+            --primary-color: #6f42c1;
+            --secondary-color: #6610f2;
+            --dark-color: #343a40;
+            --light-color: #f8f9fa;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.7);
+            border-bottom: 2px solid var(--primary-color);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        
+        .card {
+            background: rgba(40, 40, 60, 0.8);
+            border: 1px solid rgba(111, 66, 193, 0.5);
+            border-radius: 10px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+            margin-bottom: 20px;
+            color: #e0e0e0;
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(111, 66, 193, 0.3);
+        }
+        
+        .card-header {
+            background: rgba(111, 66, 193, 0.2);
+            border-bottom: 1px solid var(--primary-color);
+            font-weight: bold;
+            padding: 15px 20px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(45deg, var(--secondary-color), var(--primary-color));
+            transform: scale(1.05);
+        }
+        
+        .btn-success {
+            background: linear-gradient(45deg, var(--success-color), #1e7e34);
+        }
+        
+        .form-control {
+            background: rgba(30, 30, 45, 0.8);
+            border: 1px solid rgba(111, 66, 193, 0.5);
+            color: #fff;
+        }
+        
+        .form-control:focus {
+            background: rgba(40, 40, 60, 0.9);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(111, 66, 193, 0.25);
+            color: #fff;
+        }
+        
+        .result-box {
+            background: rgba(30, 30, 45, 0.9);
+            border: 1px solid rgba(111, 66, 193, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .nav-tabs .nav-link {
+            color: #aaa;
+            font-weight: bold;
+            border: none;
+        }
+        
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color);
+            background: transparent;
+            border-bottom: 2px solid var(--primary-color);
+        }
+        
+        .tab-content {
+            padding: 20px 0;
+        }
+        
+        .footer {
+            background: rgba(0, 0, 0, 0.7);
+            border-top: 1px solid var(--primary-color);
+            padding: 20px 0;
+            margin-top: 40px;
+            text-align: center;
+        }
+        
+        .feature-icon {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+        
+        .card-number {
+            letter-spacing: 3px;
+            font-weight: bold;
+        }
+        
+        .info-box {
+            background: rgba(30, 30, 45, 0.9);
+            border-left: 4px solid var(--primary-color);
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .highlight {
+            color: #ffcc00;
+            font-weight: bold;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        .premium-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: linear-gradient(45deg, #ffcc00, #ff9900);
+            color: #000;
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            transform: rotate(10deg);
+        }
+        
+        .validation-success {
+            color: var(--success-color);
+            font-weight: bold;
+        }
+        
+        .validation-error {
+            color: var(--danger-color);
+            font-weight: bold;
+        }
+        
+        .test-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 0.9rem;
+        }
+        
+        .combo-box {
+            background: rgba(30, 30, 45, 0.9);
+            border: 1px dashed var(--primary-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .combo-format {
+            background: rgba(111, 66, 193, 0.2);
+            padding: 10px;
+            border-radius: 6px;
+            font-family: monospace;
+            margin-top: 10px;
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+            background: rgba(30, 30, 45, 0.8);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        
+        .combo-result {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .result-item {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 6px;
+            font-family: monospace;
+        }
+        
+        .valid-card {
+            background: rgba(40, 167, 69, 0.15);
+            border-left: 4px solid var(--success-color);
+        }
+        
+        .invalid-card {
+            background: rgba(220, 53, 69, 0.15);
+            border-left: 4px solid var(--danger-color);
+        }
+        
+        .card-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .card-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        
+        .card-brand {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        
+        .visa {
+            background: linear-gradient(45deg, #1a1f71, #f7b600);
+        }
+        
+        .mastercard {
+            background: linear-gradient(45deg, #eb001b, #f79e1b);
+        }
+        
+        .amex {
+            background: linear-gradient(45deg, #016fd0, #9c9e9f);
+        }
+        
+        .other {
+            background: linear-gradient(45deg, #6f42c1, #6610f2);
+        }
+        
+        .btn-combo {
+            background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
+        }
+        
+        .btn-combo:hover {
+            background: linear-gradient(45deg, #ff8e8e, #ff6b6b);
+        }
+        
+        .nav-pills .nav-link {
+            color: #aaa;
+            border-radius: 20px;
+            margin: 0 5px;
+        }
+        
+        .nav-pills .nav-link.active {
+            background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h1><i class="fas fa-credit-card me-2"></i>Kredi Kartı Üretici</h1>
+                    <p class="lead">Kart Üretme ve Doğrulama Aracı</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <div class="d-inline-block bg-dark p-2 rounded">
+                        <span id="liveDateTime"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container mt-5">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card pulse">
+                    <div class="premium-badge">PREMIUM</div>
+                    <div class="card-header">
+                        <i class="fas fa-cogs me-2"></i>Kart Araçları
+                    </div>
+                    <div class="card-body">
+                        <ul class="nav nav-tabs" id="mainTab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="bin-tab" data-bs-toggle="tab" data-bs-target="#bin" type="button" role="tab">
+                                    <i class="fas fa-credit-card me-2"></i>BIN Üretici
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="custom-tab" data-bs-toggle="tab" data-bs-target="#custom" type="button" role="tab">
+                                    <i class="fas fa-sliders me-2"></i>Özel Üretici
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="bulk-tab" data-bs-toggle="tab" data-bs-target="#bulk" type="button" role="tab">
+                                    <i class="fas fa-download me-2"></i>Toplu Üretici
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="bininfo-tab" data-bs-toggle="tab" data-bs-target="#bininfo" type="button" role="tab">
+                                    <i class="fas fa-info-circle me-2"></i>BIN Bilgisi
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="validate-tab" data-bs-toggle="tab" data-bs-target="#validate" type="button" role="tab">
+                                    <i class="fas fa-shield-alt me-2"></i>Kart Doğrulama
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content mt-4" id="mainTabContent">
+                            <!-- BIN Generator Tab -->
+                            <div class="tab-pane fade show active" id="bin" role="tabpanel">
+                                <div class="mb-3">
+                                    <label for="binInput" class="form-label">6 haneli BIN girin</label>
+                                    <input type="text" class="form-control" id="binInput" placeholder="Ör: 440393">
+                                </div>
+                                <button id="generateBinBtn" class="btn btn-primary w-100">
+                                    <i class="fas fa-bolt me-2"></i>10 Kart Üret
+                                </button>
+                                
+                                <div class="loading" id="binLoading">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Yükleniyor...</span>
+                                    </div>
+                                    <div class="mt-2">Kartlar üretiliyor...</div>
+                                </div>
+                                
+                                <div class="result-box" id="binResult" style="display: none;">
+                                    <h5><i class="fas fa-credit-card me-2"></i>Üretilen Kartlar</h5>
+                                    <pre id="binCards" class="mt-3"></pre>
+                                </div>
+                            </div>
+                            
+                            <!-- Custom Generator Tab -->
+                            <div class="tab-pane fade" id="custom" role="tabpanel">
+                                <div class="mb-3">
+                                    <label for="customInput" class="form-label">Özel format girin</label>
+                                    <input type="text" class="form-control" id="customInput" placeholder="Ör: 56719239322374xxxxx|12|28|xxx">
+                                    <small class="text-muted">Rastgele rakamlar için 'x' kullanın</small>
+                                </div>
+                                <button id="generateCustomBtn" class="btn btn-primary w-100">
+                                    <i class="fas fa-magic me-2"></i>Özel Kart Üret
+                                </button>
+                                
+                                <div class="loading" id="customLoading">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Yükleniyor...</span>
+                                    </div>
+                                    <div class="mt-2">Özel kartlar üretiliyor...</div>
+                                </div>
+                                
+                                <div class="result-box" id="customResult" style="display: none;">
+                                    <h5><i class="fas fa-credit-card me-2"></i>Üretilen Kartlar</h5>
+                                    <pre id="customCards" class="mt-3"></pre>
+                                    
+                                    <h5 class="mt-4"><i class="fas fa-key me-2"></i>Üretilen CVV'ler</h5>
+                                    <pre id="customCvvs" class="mt-3"></pre>
+                                </div>
+                            </div>
+                            
+                            <!-- Bulk Generator Tab -->
+                            <div class="tab-pane fade" id="bulk" role="tabpanel">
+                                <div class="mb-3">
+                                    <label for="bulkBinInput" class="form-label">6 haneli BIN girin</label>
+                                    <input type="text" class="form-control" id="bulkBinInput" placeholder="Ör: 440393">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="bulkCountInput" class="form-label">Kart adedi</label>
+                                    <input type="number" class="form-control" id="bulkCountInput" value="100" min="1" max="10000">
+                                </div>
+                                <button id="generateBulkBtn" class="btn btn-primary w-100">
+                                    <i class="fas fa-download me-2"></i>Kartları Oluştur ve İndir
+                                </button>
+                                
+                                <div class="loading" id="bulkLoading">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Yükleniyor...</span>
+                                    </div>
+                                    <div class="mt-2">Toplu kartlar oluşturuluyor...</div>
+                                </div>
+                            </div>
+                            
+                            <!-- BIN Info Tab -->
+                            <div class="tab-pane fade" id="bininfo" role="tabpanel">
+                                <div class="mb-3">
+                                    <label for="binInfoInput" class="form-label">BIN numarası girin (6-8 haneli)</label>
+                                    <input type="text" class="form-control" id="binInfoInput" placeholder="Ör: 440393">
+                                </div>
+                                <button id="binInfoBtn" class="btn btn-primary w-100 mb-3">
+                                    <i class="fas fa-search me-2"></i>BIN Bilgilerini Sorgula
+                                </button>
+                                
+                                <button id="randomBinBtn" class="btn btn-outline-primary w-100">
+                                    <i class="fas fa-random me-2"></i>Rastgele BIN Sorgula
+                                </button>
+                                
+                                <div class="loading" id="binInfoLoading">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Yükleniyor...</span>
+                                    </div>
+                                    <div class="mt-2">BIN bilgileri alınıyor...</div>
+                                </div>
+                                
+                                <div class="result-box" id="binInfoResult" style="display: none;">
+                                    <h5><i class="fas fa-info-circle me-2"></i>BIN Bilgileri</h5>
+                                    <div id="binInfoDetails" class="mt-3"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Validation Tab -->
+                            <div class="tab-pane fade" id="validate" role="tabpanel">
+                                <ul class="nav nav-pills mb-4" id="validateTab" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="single-validate-tab" data-bs-toggle="pill" data-bs-target="#single-validate" type="button" role="tab">
+                                            <i class="fas fa-credit-card me-2"></i>Tek Kart Doğrulama
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="combo-validate-tab" data-bs-toggle="pill" data-bs-target="#combo-validate" type="button" role="tab">
+                                            <i class="fas fa-file-alt me-2"></i>Combo Doğrulama
+                                        </button>
+                                    </li>
+                                </ul>
+                                
+                                <div class="tab-content" id="validateTabContent">
+                                    <!-- Single Card Validation -->
+                                    <div class="tab-pane fade show active" id="single-validate" role="tabpanel">
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle me-2"></i>
+                                            Kart bilgilerini <strong>1234567812345678|12|25|123</strong> formatında girin
+                                        </div>
+                                        
+                                        <div class="test-card">
+                                            <h6><i class="fas fa-vial me-2"></i>Test Kartları:</h6>
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <strong>Visa:</strong> 4242424242424242|12|30|123
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <strong>MasterCard:</strong> 5555555555554444|09|28|456
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <strong>Declined:</strong> 4000000000000002|03|27|789
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="comboInput" class="form-label">Kart Bilgileri</label>
+                                            <input type="text" class="form-control" id="comboInput" placeholder="1234567812345678|12|25|123">
+                                            <small class="text-muted">Format: Kart No|Son Kullanma Ayı|Son Kullanma Yılı|CVV</small>
+                                        </div>
+                                        
+                                        <button id="validateSingleBtn" class="btn btn-primary w-100">
+                                            <i class="fas fa-check-circle me-2"></i>Kartı Doğrula
+                                        </button>
+                                        
+                                        <div class="loading" id="validateLoading" style="display: none;">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Yükleniyor...</span>
+                                            </div>
+                                            <div class="mt-2">Kart doğrulanıyor...</div>
+                                        </div>
+                                        
+                                        <div class="result-box mt-3" id="validateResult" style="display: none;"></div>
+                                    </div>
+                                    
+                                    <!-- Combo Validation -->
+                                    <div class="tab-pane fade" id="combo-validate" role="tabpanel">
+                                        <div class="combo-box">
+                                            <h5><i class="fas fa-file-import me-2"></i>Combo Dosyası Yükle</h5>
+                                            <p>Birden çok kartı aynı anda doğrulamak için combo dosyası yükleyin.</p>
+                                            
+                                            <div class="mb-3">
+                                                <label for="comboFile" class="form-label">Combo Dosyası Seç</label>
+                                                <input class="form-control" type="file" id="comboFile" accept=".txt">
+                                                <small class="text-muted">TXT dosyası yükleyin (Her satırda bir kart bilgisi)</small>
+                                            </div>
+                                            
+                                            <div class="combo-format">
+                                                <strong>Format:</strong> KartNo|SonKullanmaAyı|SonKullanmaYılı|CVV<br>
+                                                <strong>Örnek:</strong> 1234567812345678|12|25|123
+                                            </div>
+                                            
+                                            <div class="d-grid gap-2 mt-3">
+                                                <button id="validateComboBtn" class="btn btn-combo">
+                                                    <i class="fas fa-play-circle me-2"></i>Combo Doğrulamayı Başlat
+                                                </button>
+                                                <button id="sampleComboBtn" class="btn btn-outline-primary">
+                                                    <i class="fas fa-download me-2"></i>Örnek Combo Dosyası İndir
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="progress-container">
+                                            <div class="d-flex justify-content-between">
+                                                <span>Doğrulama İlerlemesi</span>
+                                                <span id="progressText">0/0</span>
+                                            </div>
+                                            <div class="progress mt-2" style="height: 20px;">
+                                                <div id="comboProgress" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                    role="progressbar" style="width: 0%;" aria-valuenow="0" 
+                                                    aria-valuemin="0" aria-valuemax="100"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="result-box combo-result" id="comboResults">
+                                            <h5><i class="fas fa-list me-2"></i>Doğrulama Sonuçları</h5>
+                                            <div id="comboResultsList" class="mt-3"></div>
+                                        </div>
+                                        
+                                        <div class="d-grid mt-3">
+                                            <button id="downloadResultsBtn" class="btn btn-success" disabled>
+                                                <i class="fas fa-download me-2"></i>Sonuçları İndir
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-info-circle me-2"></i>Nasıl Kullanılır?
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item bg-transparent text-light border-light">
+                                <i class="fas fa-credit-card me-2 text-primary"></i>
+                                <strong>BIN Üretici:</strong> 6 haneli BIN ile kart üretme
+                            </li>
+                            <li class="list-group-item bg-transparent text-light border-light">
+                                <i class="fas fa-sliders me-2 text-primary"></i>
+                                <strong>Özel Üretici:</strong> Özel formatta kart oluşturma
+                            </li>
+                            <li class="list-group-item bg-transparent text-light border-light">
+                                <i class="fas fa-download me-2 text-primary"></i>
+                                <strong>Toplu Üretici:</strong> Çok sayıda kart oluşturma
+                            </li>
+                            <li class="list-group-item bg-transparent text-light border-light">
+                                <i class="fas fa-info-circle me-2 text-primary"></i>
+                                <strong>BIN Bilgisi:</strong> BIN numarasıyla detaylı bilgi
+                            </li>
+                            <li class="list-group-item bg-transparent text-light border-light">
+                                <i class="fas fa-shield-alt me-2 text-primary"></i>
+                                <strong>Kart Doğrulama:</strong> Tek veya toplu kart doğrulama
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-crown me-2"></i>Premium Özellikler
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-6 mb-3">
+                                <div class="feature-icon">
+                                    <i class="fas fa-bolt"></i>
+                                </div>
+                                <h6>Hızlı İşlem</h6>
+                                <p class="small">Saniyede 1000+ kart üretimi</p>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="feature-icon">
+                                    <i class="fas fa-shield-alt"></i>
+                                </div>
+                                <h6>Güvenli</h6>
+                                <p class="small">Veri kaydı veya takip yok</p>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="feature-icon">
+                                    <i class="fas fa-globe"></i>
+                                </div>
+                                <h6>Global BIN</h6>
+                                <p class="small">200+ ülke BIN veritabanı</p>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="feature-icon">
+                                    <i class="fas fa-history"></i>
+                                </div>
+                                <h6>Geçmiş Kaydı</h6>
+                                <p class="small">Üretim geçmişinizi kaydedin</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-fire me-2"></i>Son İşlem
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="card-number mb-3">
+                            <span id="lastCardNumber">4403 9393 2234 5678</span>
+                        </div>
+                        <div class="d-flex justify-content-center">
+                            <div class="mx-2">
+                                <small>SKT</small>
+                                <div>12|28</div>
+                            </div>
+                            <div class="mx-2">
+                                <small>CVV</small>
+                                <div>123</div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <small>BIN Bilgisi</small>
+                            <div>Visa - Türkiye İş Bankası</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <div class="container">
+            <p>© 2025 Kredi Kartı Üretici ve Doğrulayıcı | Tüm hakları saklıdır</p>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Stripe API anahtarınız
+        const stripe = Stripe('pk_test_51RwLfOK8Ek7F8HDTKRXFJnH5TRHvzphuaMUFdE8I7EjkBq30drCfiae3mCV1qHgumnaAj191u0bTdFgfbUh7beo800yT0HWBal');
+        
+        // Live datetime
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            document.getElementById('liveDateTime').textContent = now.toLocaleDateString('tr-TR', options);
+        }
+        setInterval(updateDateTime, 1000);
+        updateDateTime();
+        
+        // Generate random card number
+        function generateCardNumber(bin, length = 16) {
+            let cardNumber = bin;
+            while (cardNumber.length < length - 1) {
+                cardNumber += Math.floor(Math.random() * 10);
+            }
+            
+            // Luhn algorithm
+            let sum = 0;
+            let isOdd = true;
+            for (let i = cardNumber.length - 1; i >= 0; i--) {
+                let digit = parseInt(cardNumber[i]);
+                if (isOdd) {
+                    digit *= 2;
+                    if (digit > 9) {
+                        digit -= 9;
+                    }
+                }
+                sum += digit;
+                isOdd = !isOdd;
+            }
+            
+            const lastDigit = (10 - (sum % 10)) % 10;
+            return cardNumber + lastDigit;
+        }
+        
+        // Generate expiry and CVV
+        function generateExpiryAndCvv() {
+            const month = Math.floor(Math.random() * 12) + 1;
+            const year = Math.floor(Math.random() * 6) + 25; // 2025-2030
+            const cvv = Math.floor(100 + Math.random() * 900).toString();
+            return {
+                expiry: `${month.toString().padStart(2, '0')}|${year}`,
+                cvv: cvv
+            };
+        }
+        
+        // Generate from BIN
+        document.getElementById('generateBinBtn').addEventListener('click', function() {
+            const binInput = document.getElementById('binInput').value.trim();
+            if (!binInput || binInput.length !== 6 || isNaN(binInput)) {
+                alert('Lütfen 6 haneli geçerli bir BIN girin!');
+                return;
+            }
+            
+            const loading = document.getElementById('binLoading');
+            const result = document.getElementById('binResult');
+            const cardsPre = document.getElementById('binCards');
+            
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            setTimeout(() => {
+                let cards = [];
+                for (let i = 0; i < 10; i++) {
+                    const cardNumber = generateCardNumber(binInput);
+                    const { expiry, cvv } = generateExpiryAndCvv();
+                    cards.push(`${cardNumber}|${expiry}|${cvv}`);
+                    
+                    // Update last card
+                    if (i === 9) {
+                        document.getElementById('lastCardNumber').textContent = 
+                            cardNumber.replace(/(.{4})/g, '$1 ').trim();
+                    }
+                }
+                
+                cardsPre.textContent = cards.join('\n');
+                loading.style.display = 'none';
+                result.style.display = 'block';
+            }, 1500);
+        });
+        
+        // Generate custom cards
+        document.getElementById('generateCustomBtn').addEventListener('click', function() {
+            const customInput = document.getElementById('customInput').value.trim();
+            if (!customInput || !customInput.includes('|')) {
+                alert('Geçerli bir özel format girin! Ör: 56719239322374xxxxx|12|28|xxx');
+                return;
+            }
+            
+            const parts = customInput.split('|');
+            if (parts.length < 3) {
+                alert('Geçersiz format! En az 3 bölüm olmalı. Ör: 56719239322374xxxxx|12|28|xxx');
+                return;
+            }
+            
+            const loading = document.getElementById('customLoading');
+            const result = document.getElementById('customResult');
+            const cardsPre = document.getElementById('customCards');
+            const cvvsPre = document.getElementById('customCvvs');
+            
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            setTimeout(() => {
+                let cards = [];
+                let cvvs = [];
+                
+                for (let i = 0; i < 10; i++) {
+                    let cardNumber = '';
+                    for (let char of parts[0]) {
+                        if (char.toLowerCase() === 'x') {
+                            cardNumber += Math.floor(Math.random() * 10);
+                        } else {
+                            cardNumber += char;
+                        }
+                    }
+                    
+                    // If card number is not valid, generate a valid one
+                    if (cardNumber.length < 16) {
+                        cardNumber = generateCardNumber(cardNumber.substring(0, 6));
+                    }
+                    
+                    let expiry = parts[1];
+                    let cvv = parts[2];
+                    
+                    // If expiry has x, generate random
+                    if (expiry.toLowerCase().includes('x')) {
+                        const { expiry: randomExpiry } = generateExpiryAndCvv();
+                        expiry = randomExpiry;
+                    }
+                    
+                    // If cvv has x, generate random
+                    if (cvv.toLowerCase().includes('x')) {
+                        const { cvv: randomCvv } = generateExpiryAndCvv();
+                        cvv = randomCvv;
+                    }
+                    
+                    cards.push(`${cardNumber}|${expiry}|${cvv}`);
+                    cvvs.push(cvv);
+                    
+                    // Update last card
+                    if (i === 9) {
+                        document.getElementById('lastCardNumber').textContent = 
+                            cardNumber.replace(/(.{4})/g, '$1 ').trim();
+                    }
+                }
+                
+                cardsPre.textContent = cards.join('\n');
+                cvvsPre.textContent = cvvs.join('\n');
+                loading.style.display = 'none';
+                result.style.display = 'block';
+            }, 1500);
+        });
+        
+        // Generate bulk cards
+        document.getElementById('generateBulkBtn').addEventListener('click', function() {
+            const binInput = document.getElementById('bulkBinInput').value.trim();
+            const countInput = parseInt(document.getElementById('bulkCountInput').value);
+            
+            if (!binInput || binInput.length !== 6 || isNaN(binInput)) {
+                alert('Lütfen 6 haneli geçerli bir BIN girin!');
+                return;
+            }
+            
+            if (isNaN(countInput) || countInput < 1 || countInput > 10000) {
+                alert('Lütfen 1-10000 arasında bir sayı girin!');
+                return;
+            }
+            
+            const loading = document.getElementById('bulkLoading');
+            loading.style.display = 'block';
+            
+            setTimeout(() => {
+                let cards = [];
+                for (let i = 0; i < countInput; i++) {
+                    const cardNumber = generateCardNumber(binInput);
+                    const { expiry, cvv } = generateExpiryAndCvv();
+                    cards.push(`${cardNumber}|${expiry}|${cvv}`);
+                }
+                
+                // Create a blob and download
+                const blob = new Blob([cards.join('\n')], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `kartlar_${new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_')}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                loading.style.display = 'none';
+                
+                // Update last card
+                const lastCard = cards[cards.length - 1].split('|');
+                document.getElementById('lastCardNumber').textContent = 
+                    lastCard[0].replace(/(.{4})/g, '$1 ').trim();
+            }, 2000);
+        });
+        
+        // Get BIN info
+        document.getElementById('binInfoBtn').addEventListener('click', function() {
+            const binInput = document.getElementById('binInfoInput').value.trim();
+            if (!binInput || binInput.length < 6 || binInput.length > 8 || isNaN(binInput)) {
+                alert('Lütfen 6-8 haneli geçerli bir BIN girin!');
+                return;
+            }
+            
+            const loading = document.getElementById('binInfoLoading');
+            const result = document.getElementById('binInfoResult');
+            const detailsDiv = document.getElementById('binInfoDetails');
+            
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            // Simulate API call
+            setTimeout(() => {
+                const fakeBanks = ['Türkiye İş Bankası', 'Akbank', 'Garanti BBVA', 'Yapı Kredi', 'Ziraat Bankası'];
+                const fakeCountries = ['Türkiye', 'ABD', 'Almanya', 'İngiltere', 'Fransa'];
+                const fakeSchemes = ['Visa', 'MasterCard', 'American Express', 'Troy'];
+                
+                const info = {
+                    scheme: fakeSchemes[Math.floor(Math.random() * fakeSchemes.length)],
+                    type: ['Kredi', 'Debit', 'Prepaid'][Math.floor(Math.random() * 3)],
+                    brand: ['Classic', 'Gold', 'Platinum', 'Infinite'][Math.floor(Math.random() * 4)],
+                    prepaid: Math.random() > 0.5,
+                    bank: fakeBanks[Math.floor(Math.random() * fakeBanks.length)],
+                    country: fakeCountries[Math.floor(Math.random() * fakeCountries.length)],
+                    country_code: ['TR', 'US', 'DE', 'UK', 'FR'][Math.floor(Math.random() * 5)]
+                };
+                
+                detailsDiv.innerHTML = `
+                    <p><strong>BIN:</strong> ${binInput}</p>
+                    <p><strong>Ülke:</strong> ${info.country} (${info.country_code})</p>
+                    <p><strong>Banka:</strong> ${info.bank}</p>
+                    <p><strong>Şema:</strong> ${info.scheme}</p>
+                    <p><strong>Tür:</strong> ${info.type}</p>
+                    <p><strong>Marka:</strong> ${info.brand}</p>
+                    <p><strong>Ön Ödemeli:</strong> ${info.prepaid ? 'Evet' : 'Hayır'}</p>
+                    <div class="mt-3">
+                        <a href="https://binlist.io" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-external-link-alt me-2"></i>Daha fazla BIN bilgisi için
+                        </a>
+                    </div>
+                `;
+                
+                loading.style.display = 'none';
+                result.style.display = 'block';
+            }, 1500);
+        });
+        
+        // Get random BIN
+        document.getElementById('randomBinBtn').addEventListener('click', function() {
+            const loading = document.getElementById('binInfoLoading');
+            const result = document.getElementById('binInfoResult');
+            const detailsDiv = document.getElementById('binInfoDetails');
+            const binInput = document.getElementById('binInfoInput');
+            
+            // Generate random 6-digit BIN
+            const randomBin = Math.floor(100000 + Math.random() * 900000).toString();
+            binInput.value = randomBin;
+            
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            // Simulate API call
+            setTimeout(() => {
+                const fakeBanks = ['Türkiye İş Bankası', 'Akbank', 'Garanti BBVA', 'Yapı Kredi', 'Ziraat Bankası'];
+                const fakeCountries = ['Türkiye', 'ABD', 'Almanya', 'İngiltere', 'Fransa'];
+                const fakeSchemes = ['Visa', 'MasterCard', 'American Express', 'Troy'];
+                
+                const info = {
+                    scheme: fakeSchemes[Math.floor(Math.random() * fakeSchemes.length)],
+                    type: ['Kredi', 'Debit', 'Prepaid'][Math.floor(Math.random() * 3)],
+                    brand: ['Classic', 'Gold', 'Platinum', 'Infinite'][Math.floor(Math.random() * 4)],
+                    prepaid: Math.random() > 0.5,
+                    bank: fakeBanks[Math.floor(Math.random() * fakeBanks.length)],
+                    country: fakeCountries[Math.floor(Math.random() * fakeCountries.length)],
+                    country_code: ['TR', 'US', 'DE', 'UK', 'FR'][Math.floor(Math.random() * 5)]
+                };
+                
+                detailsDiv.innerHTML = `
+                    <p><strong>BIN:</strong> ${randomBin}</p>
+                    <p><strong>Ülke:</strong> ${info.country} (${info.country_code})</p>
+                    <p><strong>Banka:</strong> ${info.bank}</p>
+                    <p><strong>Şema:</strong> ${info.scheme}</p>
+                    <p><strong>Tür:</strong> ${info.type}</p>
+                    <p><strong>Marka:</strong> ${info.brand}</p>
+                    <p><strong>Ön Ödemeli:</strong> ${info.prepaid ? 'Evet' : 'Hayır'}</p>
+                    <div class="mt-3">
+                        <a href="https://binlist.io" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-external-link-alt me-2"></i>Daha fazla BIN bilgisi için
+                        </a>
+                    </div>
+                `;
+                
+                loading.style.display = 'none';
+                result.style.display = 'block';
+            }, 1500);
+        });
+        
+        // Kart markasına göre sınıf döndür
+        function getBrandClass(brand) {
+            brand = brand.toLowerCase();
+            if (brand.includes('visa')) return 'visa';
+            if (brand.includes('mastercard')) return 'mastercard';
+            if (brand.includes('american express') || brand.includes('amex')) return 'amex';
+            return 'other';
+        }
+        
+        // Tek kart doğrulama
+        document.getElementById('validateSingleBtn').addEventListener('click', function() {
+            const comboInput = document.getElementById('comboInput').value.trim();
+            if (!comboInput) {
+                alert('Lütfen kart bilgilerini girin!');
+                return;
+            }
+            
+            const parts = comboInput.split('|');
+            if (parts.length !== 4) {
+                alert('Geçersiz format! Lütfen KartNo|Ay|Yıl|CVV formatında girin.');
+                return;
+            }
+            
+            const [cardNumber, expMonth, expYear, cvc] = parts;
+            const fullExpYear = expYear.length === 2 ? `20${expYear}` : expYear;
+            
+            const loading = document.getElementById('validateLoading');
+            const result = document.getElementById('validateResult');
+            
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            // Kart doğrulama
+            validateCard(cardNumber, expMonth, fullExpYear, cvc)
+                .then(data => {
+                    loading.style.display = 'none';
+                    result.style.display = 'block';
+                    
+                    // Son doğrulanan kartı güncelle
+                    document.getElementById('lastCardNumber').textContent = 
+                        cardNumber.replace(/(.{4})/g, '$1 ').trim();
+                    
+                    // Sonuçları göster
+                    if (data.error) {
+                        result.innerHTML = `
+                            <div class="validation-error">
+                                <i class="fas fa-times-circle me-2"></i>Kart geçersiz: ${data.error.message}
+                            </div>
+                            <div class="mt-2">Detay: ${data.error.code}</div>
+                        `;
+                    } else {
+                        const brandClass = getBrandClass(data.paymentMethod.card.brand);
+                        result.innerHTML = `
+                            <div class="validation-success">
+                                <i class="fas fa-check-circle me-2"></i>Kart başarıyla doğrulandı!
+                            </div>
+                            <div class="card-details mt-3">
+                                <div class="card-info">
+                                    <small>Kart Türü</small>
+                                    <div class="card-brand ${brandClass}">${data.paymentMethod.card.brand}</div>
+                                </div>
+                                <div class="card-info">
+                                    <small>Son Dört Hane</small>
+                                    <div>•••• ${data.paymentMethod.card.last4}</div>
+                                </div>
+                                <div class="card-info">
+                                    <small>Ülke</small>
+                                    <div>${data.paymentMethod.card.country || 'Bilinmiyor'}</div>
+                                </div>
+                                <div class="card-info">
+                                    <small>Ödeme Ağı</small>
+                                    <div>${data.paymentMethod.card.network || 'Bilinmiyor'}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    loading.style.display = 'none';
+                    result.style.display = 'block';
+                    result.innerHTML = `
+                        <div class="validation-error">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Doğrulama hatası: ${error.message}
+                        </div>
+                    `;
+                });
+        });
+        
+        // Combo doğrulama
+        document.getElementById('validateComboBtn').addEventListener('click', function() {
+            const fileInput = document.getElementById('comboFile');
+            if (!fileInput.files.length) {
+                alert('Lütfen bir combo dosyası seçin!');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const content = e.target.result;
+                const lines = content.split('\n').filter(line => line.trim() !== '');
+                
+                if (lines.length === 0) {
+                    alert('Dosyada geçerli kart bilgisi bulunamadı!');
+                    return;
+                }
+                
+                // Sonuçları temizle
+                document.getElementById('comboResultsList').innerHTML = '';
+                document.getElementById('downloadResultsBtn').disabled = true;
+                
+                // İlerleme çubuğunu ayarla
+                const progressBar = document.getElementById('comboProgress');
+                const progressText = document.getElementById('progressText');
+                progressBar.style.width = '0%';
+                progressBar.setAttribute('aria-valuenow', 0);
+                progressText.textContent = `0/${lines.length}`;
+                
+                // Sonuçları saklamak için dizi
+                const results = [];
+                
+                // Kartları sırayla doğrula
+                let processed = 0;
+                const total = lines.length;
+                
+                function processNextCard() {
+                    if (processed >= total) {
+                        // Tüm kartlar doğrulandı
+                        document.getElementById('downloadResultsBtn').disabled = false;
+                        return;
+                    }
+                    
+                    const line = lines[processed];
+                    const parts = line.split('|');
+                    
+                    if (parts.length !== 4) {
+                        // Geçersiz format
+                        results.push({
+                            card: line,
+                            valid: false,
+                            error: 'Geçersiz format'
+                        });
+                        
+                        addResultToUI(line, false, 'Geçersiz format');
+                        
+                        processed++;
+                        updateProgress();
+                        setTimeout(processNextCard, 100);
+                        return;
+                    }
+                    
+                    const [cardNumber, expMonth, expYear, cvc] = parts;
+                    const fullExpYear = expYear.length === 2 ? `20${expYear}` : expYear;
+                    
+                    // Kartı doğrula
+                    validateCard(cardNumber, expMonth, fullExpYear, cvc)
+                        .then(data => {
+                            if (data.error) {
+                                results.push({
+                                    card: line,
+                                    valid: false,
+                                    error: data.error.message,
+                                    details: data.error
+                                });
+                                addResultToUI(line, false, data.error.message);
+                            } else {
+                                results.push({
+                                    card: line,
+                                    valid: true,
+                                    details: data.paymentMethod
+                                });
+                                addResultToUI(line, true, 'Geçerli kart');
+                            }
+                            
+                            processed++;
+                            updateProgress();
+                            setTimeout(processNextCard, 500); // Rate limit için bekle
+                        })
+                        .catch(error => {
+                            results.push({
+                                card: line,
+                                valid: false,
+                                error: error.message
+                            });
+                            addResultToUI(line, false, error.message);
+                            
+                            processed++;
+                            updateProgress();
+                            setTimeout(processNextCard, 500);
+                        });
+                }
+                
+                function updateProgress() {
+                    const percent = Math.round((processed / total) * 100);
+                    progressBar.style.width = `${percent}%`;
+                    progressBar.setAttribute('aria-valuenow', percent);
+                    progressText.textContent = `${processed}/${total}`;
+                }
+                
+                function addResultToUI(cardInfo, isValid, message) {
+                    const resultList = document.getElementById('comboResultsList');
+                    const resultItem = document.createElement('div');
+                    resultItem.className = `result-item ${isValid ? 'valid-card' : 'invalid-card'}`;
+                    
+                    const formattedCard = cardInfo.replace(/(.{4})/g, '$1 ').replace(/\|/g, ' | ');
+                    
+                    resultItem.innerHTML = `
+                        <div><strong>${formattedCard}</strong></div>
+                        <div>${isValid ? '<span class="validation-success">✓ Geçerli</span>' : 
+                            `<span class="validation-error">✗ Hata:</span> ${message}`}</div>
+                    `;
+                    
+                    resultList.appendChild(resultItem);
+                    resultList.scrollTop = resultList.scrollHeight;
+                }
+                
+                // İlk kartı işle
+                processNextCard();
+            };
+            
+            reader.readAsText(file);
+        });
+        
+        // Örnek combo dosyası indirme
+        document.getElementById('sampleComboBtn').addEventListener('click', function() {
+            const sampleContent = `4242424242424242|12|30|123\n5555555555554444|09|28|456\n4000000000000002|03|27|789\n378282246310005|04|26|1234`;
+            const blob = new Blob([sampleContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ornek_combo.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+        
+        // Sonuçları indirme
+        document.getElementById('downloadResultsBtn').addEventListener('click', function() {
+            const resultItems = document.querySelectorAll('#comboResultsList .result-item');
+            if (resultItems.length === 0) {
+                alert('İndirilecek sonuç bulunamadı!');
+                return;
+            }
+            
+            let content = '';
+            resultItems.forEach(item => {
+                const cardText = item.querySelector('strong').textContent.replace(/\s+/g, '');
+                const status = item.querySelector('.validation-success') ? 'Geçerli' : 
+                    `Geçersiz: ${item.textContent.split('Hata:')[1]?.trim() || 'Bilinmeyen hata'}`;
+                content += `${cardText} | ${status}\n`;
+            });
+            
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `kart_dogrulama_sonuclari_${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+        
+        // Kart doğrulama fonksiyonu
+        function validateCard(cardNumber, expMonth, expYear, cvc) {
+            return new Promise((resolve, reject) => {
+                stripe.createPaymentMethod({
+                    type: 'card',
+                    card: {
+                        number: cardNumber,
+                        exp_month: expMonth,
+                        exp_year: expYear,
+                        cvc: cvc,
+                    },
+                }).then(result => {
+                    if (result.error) {
+                        resolve({ error: result.error });
+                    } else {
+                        resolve({ paymentMethod: result.paymentMethod });
+                    }
+                }).catch(error => {
+                    reject(error);
+                });
+            });
+        }
+        
+        // Sayfa yüklendiğinde test kartını göster
+        document.getElementById('comboInput').value = '4242424242424242|12|30|123';
+        
+        // Initialize with a sample card
+        document.getElementById('lastCardNumber').textContent = 
+            generateCardNumber('440393').replace(/(.{4})/g, '$1 ').trim();
+    </script>
+</body>
+</html>
